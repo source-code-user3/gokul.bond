@@ -3,12 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <title>Gokul Login</title>
-
   <style>
     body {
       margin: 0;
       height: 100vh;
-      background: #87CEEB;
+      background: #87CEEB; /* Light sky blue */
       display: flex;
       justify-content: center;
       align-items: center;
@@ -28,22 +27,23 @@
 <body>
   <button id="login-btn">Login</button>
 
-  <!-- REAL WORKING FRONTEGG SDK -->
-  <script src="https://assets.frontegg.com/frontegg/js/frontegg.min.js"></script>
+<!-- ✅ Correct AU-region Frontegg SDK -->
+<script src="https://cdn.frontegg.com/libs/frontegg-web/latest/bundle.js"></script>
 
-  <script>
-    const app = frontegg.initialize({
-      contextOptions: {
-        baseUrl: 'https://app-vz7p9eodgtd1.au.frontegg.com',
-        clientId: 'f581911f-35a1-4a6f-b559-c153aa749b85'
-      },
-      hostedLoginBox: true
-    });
+<script>
+  const app = new FronteggApp({
+    contextOptions: {
+      baseUrl: 'https://app-vz7p9eodgtd1.au.frontegg.com',
+      clientId: 'f581911f-35a1-4a6f-b559-c153aa749b85'
+    },
+    hostedLoginBox: true
+  });
 
-    document.getElementById('login-btn').addEventListener('click', () => {
+  document.getElementById('login-btn')
+    .addEventListener('click', () => {
       app.loginWithRedirect();
     });
-  </script>
+</script>
 
 </body>
 </html>
