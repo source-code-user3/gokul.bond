@@ -1,13 +1,46 @@
 <!DOCTYPE html>
 <html>
 <head>
-<style>
-  body {
-    margin: 0;
-    height: 100vh;
-    background: #87CEEB;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <title>Gokul Bond Login</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      background: #87CEEB;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: Arial, sans-serif;
+    }
+    button {
+      background: white;
+      border: 0;
+      padding: 15px 30px;
+      font-size: 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+  </style>
 </head>
-<body></body>
+
+<body>
+  <button onclick="login()">Login</button>
+
+  <script type="module">
+    import { FronteggApp } from 'https://cdn.jsdelivr.net/npm/@frontegg/js/dist/frontegg.js';
+
+    const app = new FronteggApp({
+      contextOptions: {
+        baseUrl: 'YOUR-FRONTEGG-LOGIN-URL',
+        clientId: 'YOUR-APP-API-KEY'
+      }
+    });
+
+    function login() {
+      app.login();
+    }
+  </script>
+</body>
 </html>
