@@ -2,7 +2,8 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Gokul Bond Login</title>
+  <title>Login | gokul.bond</title>
+
   <style>
     body {
       margin: 0;
@@ -13,34 +14,37 @@
       align-items: center;
       font-family: Arial, sans-serif;
     }
+
     button {
       background: white;
-      border: 0;
-      padding: 15px 30px;
+      border: none;
+      padding: 16px 32px;
       font-size: 20px;
       border-radius: 8px;
       cursor: pointer;
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
   </style>
-</head>
 
+</head>
 <body>
+
   <button onclick="login()">Login</button>
 
   <script type="module">
-    import { FronteggApp } from 'https://cdn.jsdelivr.net/npm/@frontegg/js/dist/frontegg.js';
+    import { FronteggApp } from 'https://unpkg.com/@frontegg/js@latest';
 
-    const app = new FronteggApp({
+    const frontegg = new FronteggApp({
       contextOptions: {
-        baseUrl: 'https://app-vz7p9eodgtd1.au.frontegg.com/oauth',
+        baseUrl: 'https://app-vz7p9eodgtd1.au.frontegg.com',
         clientId: 'f581911f-35a1-4a6f-b559-c153aa749b85'
       }
     });
 
     function login() {
-      app.login();
+      frontegg.login();
     }
   </script>
+
 </body>
 </html>
