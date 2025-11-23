@@ -27,20 +27,22 @@
 <body>
   <button id="login-btn">Login</button>
 
-<script src="https://cdn.frontegg.com/js/latest/frontegg.js"></script>
-<script>
-  const app = frontegg.initialize({
-    contextOptions: {
-      baseUrl: 'https://app-vz7p9eodgtd1.au.frontegg.com',
-      clientId: 'f581911f-35a1-4a6f-b559-c153aa749b85'
-    },
-    hostedLoginBox: true
-  });
+  <!-- CORRECT FRONTegg CDN -->
+  <script src="https://cdn.frontegg.com/web-sdk/latest/frontegg.js"></script>
 
-  document.getElementById('login-btn').addEventListener('click', () => {
-    app.loginWithRedirect();
-  });
-</script>
+  <script>
+    const app = frontegg.initialize({
+      contextOptions: {
+        baseUrl: 'https://app-vz7p9eodgtd1.au.frontegg.com',
+        clientId: 'f581911f-35a1-4a6f-b559-c153aa749b85'
+      },
+      hostedLoginBox: true
+    });
+
+    document.getElementById('login-btn').addEventListener('click', () => {
+      app.loginWithRedirect();
+    });
+  </script>
 
 </body>
 </html>
