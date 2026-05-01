@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CORS Tester — gokul.bond</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Outfit:wght@400;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #08090d;
+    --surface: #12141c;
+    --surface2: #1a1d28;
+    --border: #262a3a;
+    --text: #dfe3ef;
+    --dim: #6b7394;
+    --green: #34d399;
+    --green-bg: rgba(52, 211, 153, 0.08);
+    --red: #f87171;
+    --red-bg: rgba(248, 113, 113, 0.08);
+    --blue: #60a5fa;
+    --blue-bg: rgba(96, 165, 250, 0.08);
+    --yellow: #fbbf24;
+    --yellow-bg: rgba(251, 191, 36, 0.08);
+    --accent: #818cf8;
+    --accent-bg: rgba(129, 140, 248, 0.08);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .container { max-width: 900px; margin: 0 auto; }
+
+  .header {
+    text-align: center;
+    padding: 40px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+
+  .header h1 {
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .header h1 .highlight { color: var(--accent); }
+
+  .header .subtitle {
+    color: var(--dim);
+    font-size: 13px;
+  }
+
+  .header .origin-badge {
+    display: inline-block;
+    margin-top: 12px;
+    background: var(--accent-bg);
+    border: 1px solid rgba(129, 140, 248, 0.2);
+    color: var(--accent);
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .info-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--dim);
+  }
+
+  .info-bar .icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+  /* Test Cards */
+  .test-grid {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .test-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .test-card:hover { border-color: var(--accent); }
+
+  .tc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tc-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .tc-method {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 5px;
+    text-transform: uppercase;
+  }
+
+  .method-get { background: var(--green-bg); color: var(--green); }
+  .method-put { background: var(--yellow-bg); color: var(--yellow); }
+  .method-delete { background: var(--red-bg); color: var(--red); }
+
+  .tc-title { font-weight: 600; font-size: 14px; }
+  .tc-desc { font-size: 12px; color: var(--dim); margin-top: 2px; }
+
+  .tc-btn {
+    padding: 8px 20px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    border-radius: 8px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tc-btn:hover {
+    background: var(--accent);
+    color: white;
+  }
+
+  .tc-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .tc-body {
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+  }
+
+  .tc-body.open {
+    padding: 16px 20px;
+    max-height: 2000px;
+  }
+
+  /* Log entries */
+  .log-entry {
+    margin-bottom: 12px;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .log-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .log-label.req { color: var(--blue); }
+  .log-label.res { color: var(--green); }
+  .log-label.err { color: var(--red); }
+  .log-label.info { color: var(--yellow); }
+
+  .log-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    line-height: 1.7;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .log-box .h-name { color: var(--accent); }
+  .log-box .h-val { color: var(--text); }
+  .log-box .h-important { color: var(--yellow); font-weight: 600; }
+  .log-box .h-good { color: var(--green); }
+  .log-box .h-bad { color: var(--red); }
+
+  /* Result banner */
+  .result-banner {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .result-success {
+    background: var(--green-bg);
+    border: 1px solid rgba(52, 211, 153, 0.2);
+    color: var(--green);
+  }
+
+  .result-blocked {
+    background: var(--red-bg);
+    border: 1px solid rgba(248, 113, 113, 0.2);
+    color: var(--red);
+  }
+
+  .result-info {
+    background: var(--yellow-bg);
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    color: var(--yellow);
+  }
+
+  /* DevTools hint */
+  .devtools-hint {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+
+  .devtools-hint h3 {
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: var(--yellow);
+  }
+
+  .devtools-hint p {
+    font-size: 12px;
+    color: var(--dim);
+    line-height: 1.6;
+  }
+
+  .devtools-hint code {
+    background: var(--bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  .step-list {
+    margin-top: 10px;
+    padding-left: 0;
+    list-style: none;
+    counter-reset: steps;
+  }
+
+  .step-list li {
+    counter-increment: steps;
+    font-size: 12px;
+    color: var(--dim);
+    padding: 4px 0;
+    display: flex;
+    gap: 8px;
+  }
+
+  .step-list li::before {
+    content: counter(steps);
+    background: var(--accent-bg);
+    color: var(--accent);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .footer {
+    text-align: center;
+    padding: 32px 0;
+    border-top: 1px solid var(--border);
+    color: var(--dim);
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>🔒 <span class="highlight">CORS</span> Live Tester</h1>
+    <p class="subtitle">Making real cross-origin requests from this domain to your DigitalOcean Space</p>
+    <div class="origin-badge">origin: <span id="currentOrigin"></span></div>
+  </div>
+
+  <div class="info-bar">
+    <span class="icon">💡</span>
+    <span>
+      This page runs on <strong>gokul.bond</strong> and makes fetch() requests to 
+      <strong>spafce2.sfo3.digitaloceanspaces.com</strong>. 
+      Since these are different domains, the browser enforces CORS. 
+      Open DevTools (F12 → Network tab) to see the real headers!
+    </span>
+  </div>
+
+  <!-- DevTools guide -->
+  <div class="devtools-hint">
+    <h3>🛠️ Open DevTools to see everything!</h3>
+    <p>Press <code>F12</code> or <code>Ctrl+Shift+I</code> (Windows) / <code>Cmd+Option+I</code> (Mac) and go to the <strong>Network</strong> tab. When you click the test buttons below, you'll see:</p>
+    <ul class="step-list">
+      <li>The preflight <code>OPTIONS</code> request (for PUT/DELETE)</li>
+      <li>The actual <code>GET</code> / <code>PUT</code> / <code>DELETE</code> request</li>
+      <li>Response headers including <code>Access-Control-Allow-Origin</code></li>
+      <li>If blocked, a red CORS error in the Console tab</li>
+    </ul>
+  </div>
+
+  <!-- Test 1: GET -->
+  <div class="test-grid">
+    <div class="test-card">
+      <div class="tc-header">
+        <div class="tc-header-left">
+          <span class="tc-method method-get">GET</span>
+          <div>
+            <div class="tc-title">Read file1.txt from bucket</div>
+            <div class="tc-desc">Tries to fetch and read the contents of your file</div>
+          </div>
+        </div>
+        <button class="tc-btn" onclick="runTest('get')">Run Test</button>
+      </div>
+      <div class="tc-body" id="result-get"></div>
+    </div>
+
+    <!-- Test 2: GET with credentials -->
+    <div class="test-card">
+      <div class="tc-header">
+        <div class="tc-header-left">
+          <span class="tc-method method-get">GET</span>
+          <div>
+            <div class="tc-title">Read file1.txt WITH credentials</div>
+            <div class="tc-desc">Same request but sends cookies/auth — tests credential handling</div>
+          </div>
+        </div>
+        <button class="tc-btn" onclick="runTest('get_creds')">Run Test</button>
+      </div>
+      <div class="tc-body" id="result-get_creds"></div>
+    </div>
+
+    <!-- Test 3: PUT -->
+    <div class="test-card">
+      <div class="tc-header">
+        <div class="tc-header-left">
+          <span class="tc-method method-put">PUT</span>
+          <div>
+            <div class="tc-title">Upload a file to the bucket</div>
+            <div class="tc-desc">Tries to write "cors-test-upload.txt" to your bucket (needs PUT in CORS config)</div>
+          </div>
+        </div>
+        <button class="tc-btn" onclick="runTest('put')">Run Test</button>
+      </div>
+      <div class="tc-body" id="result-put"></div>
+    </div>
+
+    <!-- Test 4: DELETE -->
+    <div class="test-card">
+      <div class="tc-header">
+        <div class="tc-header-left">
+          <span class="tc-method method-delete">DELETE</span>
+          <div>
+            <div class="tc-title">Delete a file from the bucket</div>
+            <div class="tc-desc">Tries to delete "cors-test-upload.txt" (needs DELETE in CORS config)</div>
+          </div>
+        </div>
+        <button class="tc-btn" onclick="runTest('delete')">Run Test</button>
+      </div>
+      <div class="tc-body" id="result-delete"></div>
+    </div>
+
+    <!-- Test 5: Arbitrary origin check -->
+    <div class="test-card">
+      <div class="tc-header">
+        <div class="tc-header-left">
+          <span class="tc-method method-get">GET</span>
+          <div>
+            <div class="tc-title">Check if bucket reflects any origin</div>
+            <div class="tc-desc">Reads response headers to see if Access-Control-Allow-Origin matches this domain</div>
+          </div>
+        </div>
+        <button class="tc-btn" onclick="runTest('reflect')">Run Test</button>
+      </div>
+      <div class="tc-body" id="result-reflect"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    CORS Tester — running on <span id="footerOrigin"></span> → targeting spafce2.sfo3.digitaloceanspaces.com
+  </div>
+</div>
+
+<script>
+  const BUCKET = 'https://spafce2.sfo3.digitaloceanspaces.com';
+  const TEST_FILE = '/file1.txt';
+  const UPLOAD_FILE = '/cors-test-upload.txt';
+
+  // Show current origin
+  document.getElementById('currentOrigin').textContent = window.location.origin;
+  document.getElementById('footerOrigin').textContent = window.location.origin;
+
+  function addLog(container, type, label, content) {
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = `
+      <div class="log-label ${type}">
+        ${type === 'req' ? '→' : type === 'res' ? '←' : type === 'err' ? '✕' : 'ℹ'} ${label}
+      </div>
+      <div class="log-box">${content}</div>
+    `;
+    container.appendChild(entry);
+  }
+
+  function addResult(container, type, text) {
+    const banner = document.createElement('div');
+    banner.className = `result-banner result-${type}`;
+    banner.innerHTML = `${type === 'success' ? '✅' : type === 'blocked' ? '🚫' : '⚠️'} ${text}`;
+    container.appendChild(banner);
+  }
+
+  function formatHeaders(headers) {
+    let lines = [];
+    headers.forEach((value, name) => {
+      const isCorHeader = name.toLowerCase().startsWith('access-control');
+      if (isCorHeader) {
+        lines.push(`<span class="h-name">${name}:</span> <span class="h-important">${value}</span>`);
+      } else {
+        lines.push(`<span class="h-name">${name}:</span> <span class="h-val">${value}</span>`);
+      }
+    });
+    return lines.length > 0 ? lines.join('\n') : '<span class="h-val">(no headers visible — browser may be hiding them due to CORS block)</span>';
+  }
+
+  async function runTest(type) {
+    const container = document.getElementById(`result-${type}`);
+    container.innerHTML = '';
+    container.classList.add('open');
+
+    const origin = window.location.origin;
+
+    try {
+      let url, method, body, creds;
+
+      switch (type) {
+        case 'get':
+          url = BUCKET + TEST_FILE;
+          method = 'GET';
+          creds = 'omit';
+          break;
+        case 'get_creds':
+          url = BUCKET + TEST_FILE;
+          method = 'GET';
+          creds = 'include';
+          break;
+        case 'put':
+          url = BUCKET + UPLOAD_FILE;
+          method = 'PUT';
+          body = 'This file was uploaded via CORS from ' + origin + ' at ' + new Date().toISOString();
+          creds = 'omit';
+          break;
+        case 'delete':
+          url = BUCKET + UPLOAD_FILE;
+          method = 'DELETE';
+          creds = 'omit';
+          break;
+        case 'reflect':
+          url = BUCKET + TEST_FILE;
+          method = 'GET';
+          creds = 'omit';
+          break;
+      }
+
+      // Log the request
+      addLog(container, 'req', `${method} Request Sent`, 
+        `<span class="h-name">URL:</span> <span class="h-val">${url}</span>\n` +
+        `<span class="h-name">Method:</span> <span class="h-val">${method}</span>\n` +
+        `<span class="h-name">Origin:</span> <span class="h-important">${origin}</span>\n` +
+        `<span class="h-name">Credentials:</span> <span class="h-val">${creds}</span>` +
+        (method !== 'GET' ? `\n\n<span class="h-val">⚡ Browser will send a preflight OPTIONS request first!</span>` : '')
+      );
+
+      // Make the request
+      const startTime = performance.now();
+      const fetchOptions = {
+        method: method,
+        credentials: creds,
+        mode: 'cors',
+      };
+      if (body) fetchOptions.body = body;
+
+      const response = await fetch(url, fetchOptions);
+      const elapsed = Math.round(performance.now() - startTime);
+
+      // Log response headers
+      addLog(container, 'res', `Response — ${response.status} ${response.statusText} (${elapsed}ms)`,
+        formatHeaders(response.headers)
+      );
+
+      // Check CORS headers
+      const acao = response.headers.get('Access-Control-Allow-Origin');
+      const acac = response.headers.get('Access-Control-Allow-Credentials');
+
+      if (type === 'reflect') {
+        addLog(container, 'info', 'CORS Header Analysis',
+          `<span class="h-name">Access-Control-Allow-Origin:</span> <span class="h-important">${acao || '(not present)'}</span>\n\n` +
+          (acao === '*' 
+            ? `<span class="h-good">Wildcard (*) — any website can read responses. OK for public data, risky for private.</span>`
+            : acao === origin 
+              ? `<span class="h-bad">⚠ Origin is REFLECTED back! The server returns whatever Origin was sent.\nThis is dangerous if credentials are also allowed.</span>`
+              : acao
+                ? `<span class="h-val">Specific origin set. Only ${acao} is allowed.</span>`
+                : `<span class="h-val">No CORS header — cross-origin access blocked.</span>`) +
+          `\n\n<span class="h-name">Access-Control-Allow-Credentials:</span> <span class="${acac === 'true' ? 'h-bad' : 'h-good'}">${acac || 'false (not set)'}</span>` +
+          (acac === 'true' && (acao === origin || acao === '*') 
+            ? `\n\n<span class="h-bad">🐛 CRITICAL: Credentials allowed with permissive origin = potential vulnerability!</span>` 
+            : '')
+        );
+      }
+
+      // Read response body
+      const text = await response.text();
+      if (text) {
+        addLog(container, 'res', 'Response Body',
+          `<span class="h-good">${text.substring(0, 500)}</span>` +
+          (text.length > 500 ? `\n... (${text.length} chars total)` : '')
+        );
+      }
+
+      // Result
+      if (type === 'get' || type === 'get_creds') {
+        addResult(container, 'success', `CORS allowed! JavaScript on ${origin} can read data from the bucket.`);
+      } else if (type === 'put') {
+        addResult(container, 'success', `Upload succeeded! A file was written to the bucket from ${origin}.`);
+      } else if (type === 'delete') {
+        addResult(container, 'success', `Delete request accepted by the server from ${origin}.`);
+      } else if (type === 'reflect') {
+        if (acao === origin && acac === 'true') {
+          addResult(container, 'blocked', 'VULNERABILITY: Origin reflected + credentials allowed. Any site can steal data.');
+        } else if (acao === '*') {
+          addResult(container, 'info', 'Wildcard origin. Public data = fine. Private data = worth reporting.');
+        } else if (acao === origin) {
+          addResult(container, 'info', 'Origin is reflected. Test with credentials to check full impact.');
+        } else {
+          addResult(container, 'success', 'Origin handling looks reasonable.');
+        }
+      }
+
+    } catch (err) {
+      // CORS block shows up as a TypeError
+      addLog(container, 'err', 'Request FAILED',
+        `<span class="h-bad">${err.name}: ${err.message}</span>\n\n` +
+        `<span class="h-val">This usually means CORS blocked the request.\n` +
+        `The browser refused to let JavaScript on ${window.location.origin} read the response.\n\n` +
+        `Check the Console tab (F12) for the exact CORS error message.</span>`
+      );
+
+      addResult(container, 'blocked', `CORS blocked! The bucket does not allow requests from ${window.location.origin}.`);
+    }
+  }
+</script>
+
+</body>
+</html>
