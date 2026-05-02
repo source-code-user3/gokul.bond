@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CORS Bug Bounty Scanner</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Outfit:wght@400;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #f0f2f5;
+    --surface: #ffffff;
+    --surface2: #f7f8fa;
+    --border: #d8dce6;
+    --text: #1a1f36;
+    --dim: #5a6178;
+    --green: #16a34a;
+    --green-bg: rgba(22, 163, 74, 0.1);
+    --red: #dc2626;
+    --red-bg: rgba(220, 38, 38, 0.1);
+    --blue: #2563eb;
+    --blue-bg: rgba(37, 99, 235, 0.08);
+    --yellow: #b45309;
+    --yellow-bg: rgba(180, 83, 9, 0.1);
+    --accent: #6366f1;
+    --accent-bg: rgba(99, 102, 241, 0.08);
+    --orange: #ea580c;
+    --orange-bg: rgba(234, 88, 12, 0.1);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .container { max-width: 960px; margin: 0 auto; }
+
+  .header {
+    text-align: center;
+    padding: 32px 0 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+
+  .header h1 {
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .header h1 .hl { color: var(--accent); }
+
+  .header p {
+    color: var(--dim);
+    font-size: 13px;
+  }
+
+  .origin-badge {
+    display: inline-block;
+    margin-top: 10px;
+    background: var(--accent-bg);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    color: var(--accent);
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* Input section */
+  .scan-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .scan-box h2 {
+    font-size: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .input-row input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .input-row input:focus { border-color: var(--accent); }
+
+  .btn {
+    padding: 12px 28px;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+
+  .btn-primary:hover { filter: brightness(1.1); }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .help-text {
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* Explanation box */
+  .explain-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .explain-box h2 {
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+
+  .attack-flow {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .flow-node {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .flow-node .fn-icon { font-size: 28px; margin-bottom: 6px; }
+  .flow-node .fn-label { font-size: 12px; font-weight: 600; }
+  .flow-node .fn-desc { font-size: 10px; color: var(--dim); margin-top: 4px; }
+
+  .flow-arrow {
+    font-size: 20px;
+    color: var(--dim);
+    text-align: center;
+  }
+
+  .attack-steps {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .attack-step {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    background: var(--surface2);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .attack-step .as-num {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent-bg);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .attack-step .as-text {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--dim);
+  }
+
+  .attack-step .as-text strong { color: var(--text); }
+
+  /* Results section */
+  .results-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .results-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .results-body {
+    padding: 20px 24px;
+  }
+
+  .results-empty {
+    text-align: center;
+    color: var(--dim);
+    font-size: 13px;
+    padding: 40px 0;
+  }
+
+  /* Test result cards */
+  .test-result {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn 0.3s ease;
+  }
+
+  .test-result:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .tr-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .tr-badge {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 3px 10px;
+    border-radius: 5px;
+  }
+
+  .badge-safe { background: var(--green-bg); color: var(--green); }
+  .badge-vuln { background: var(--red-bg); color: var(--red); }
+  .badge-warn { background: var(--yellow-bg); color: var(--yellow); }
+  .badge-info { background: var(--blue-bg); color: var(--blue); }
+  .badge-error { background: var(--orange-bg); color: var(--orange); }
+
+  .tr-title { font-weight: 600; font-size: 14px; }
+
+  .tr-detail {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    line-height: 1.8;
+    margin-bottom: 10px;
+  }
+
+  .tr-detail .label { color: var(--dim); }
+  .tr-detail .val { color: var(--text); font-weight: 600; }
+  .tr-detail .val-good { color: var(--green); font-weight: 600; }
+  .tr-detail .val-bad { color: var(--red); font-weight: 600; }
+  .tr-detail .val-warn { color: var(--yellow); font-weight: 600; }
+
+  .tr-explain {
+    font-size: 12px;
+    color: var(--dim);
+    line-height: 1.6;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent);
+  }
+
+  .tr-explain strong { color: var(--text); }
+
+  /* Severity banner */
+  .severity-banner {
+    padding: 16px 20px;
+    border-radius: 10px;
+    margin-top: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .severity-banner .sb-icon { font-size: 24px; flex-shrink: 0; }
+
+  .severity-banner .sb-content h4 { font-size: 14px; margin-bottom: 4px; }
+  .severity-banner .sb-content p { font-size: 12px; line-height: 1.6; }
+
+  .sev-critical {
+    background: var(--red-bg);
+    border: 1px solid rgba(220, 38, 38, 0.2);
+    color: var(--red);
+  }
+
+  .sev-medium {
+    background: var(--yellow-bg);
+    border: 1px solid rgba(180, 83, 9, 0.2);
+    color: var(--yellow);
+  }
+
+  .sev-low {
+    background: var(--blue-bg);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    color: var(--blue);
+  }
+
+  .sev-safe {
+    background: var(--green-bg);
+    border: 1px solid rgba(22, 163, 74, 0.2);
+    color: var(--green);
+  }
+
+  /* Loading */
+  .loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 0;
+    color: var(--dim);
+    font-size: 13px;
+  }
+
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Report */
+  .report-btn {
+    margin-top: 16px;
+    padding: 10px 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text);
+    transition: all 0.2s;
+  }
+
+  .report-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  @media (max-width: 768px) {
+    .attack-flow { grid-template-columns: 1fr; }
+    .flow-arrow { transform: rotate(90deg); }
+    .attack-steps { grid-template-columns: 1fr; }
+    .input-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>🎯 CORS <span class="hl">Bug Bounty</span> Scanner</h1>
+    <p>Test any URL for CORS misconfigurations — see exactly what an attacker can exploit</p>
+    <div class="origin-badge">your origin: <span id="myOrigin"></span></div>
+  </div>
+
+  <!-- How the attack works -->
+  <div class="explain-box">
+    <h2>💀 How a CORS attack works</h2>
+    <div class="attack-flow">
+      <div class="flow-node">
+        <div class="fn-icon">😈</div>
+        <div class="fn-label">Attacker's Site</div>
+        <div class="fn-desc">evil-site.com</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="fn-icon">👤</div>
+        <div class="fn-label">Victim's Browser</div>
+        <div class="fn-desc">Visits evil-site.com</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="fn-icon">🪣</div>
+        <div class="fn-label">Target Bucket/API</div>
+        <div class="fn-desc">Has private data</div>
+      </div>
+    </div>
+    <div class="attack-steps">
+      <div class="attack-step">
+        <div class="as-num">1</div>
+        <div class="as-text"><strong>Victim visits evil-site.com</strong> — maybe through a phishing link or an ad</div>
+      </div>
+      <div class="attack-step">
+        <div class="as-num">2</div>
+        <div class="as-text"><strong>Hidden JavaScript runs</strong> — the page has code that fetches data from the target bucket</div>
+      </div>
+      <div class="attack-step">
+        <div class="as-num">3</div>
+        <div class="as-text"><strong>Browser sends victim's cookies</strong> — if credentials are allowed, the request carries the victim's auth session</div>
+      </div>
+      <div class="attack-step">
+        <div class="as-num">4</div>
+        <div class="as-text"><strong>Data stolen silently</strong> — JavaScript reads the response and sends it to the attacker's server</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scanner Input -->
+  <div class="scan-box">
+    <h2>🔍 Test a Target URL</h2>
+    <div class="input-row">
+      <input type="text" id="targetUrl" placeholder="https://bucket.s3.amazonaws.com/file.txt or any URL" value="https://spafce2.sfo3.digitaloceanspaces.com/file1.txt">
+      <button class="btn btn-primary" id="scanBtn" onclick="runFullScan()">Scan for CORS Issues</button>
+    </div>
+    <div class="help-text">Enter any URL — S3 bucket, API endpoint, CDN, etc. The scanner will test multiple CORS attack vectors.</div>
+  </div>
+
+  <!-- Results -->
+  <div class="results-box">
+    <div class="results-header">
+      📋 Scan Results
+    </div>
+    <div class="results-body" id="resultsBody">
+      <div class="results-empty">Enter a target URL and click "Scan" to start testing</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.getElementById('myOrigin').textContent = window.location.origin;
+
+  let scanResults = [];
+
+  async function runFullScan() {
+    const url = document.getElementById('targetUrl').value.trim();
+    if (!url) return alert('Enter a target URL');
+
+    const btn = document.getElementById('scanBtn');
+    btn.disabled = true;
+    btn.textContent = 'Scanning...';
+
+    const body = document.getElementById('resultsBody');
+    body.innerHTML = '<div class="loading"><div class="spinner"></div>Running CORS tests against target...</div>';
+
+    scanResults = [];
+
+    // Test 1: Basic GET — does CORS work at all?
+    await testBasicGet(url, body);
+
+    // Test 2: Does it reflect our origin?
+    await testOriginReflection(url, body);
+
+    // Test 3: Credentials
+    await testCredentials(url, body);
+
+    // Test 4: Can we read the response body?
+    await testDataAccess(url, body);
+
+    // Test 5: Writable? (PUT)
+    await testWriteAccess(url, body);
+
+    // Test 6: Deletable?
+    await testDeleteAccess(url, body);
+
+    // Overall severity
+    showOverallSeverity(body);
+
+    btn.disabled = false;
+    btn.textContent = 'Scan for CORS Issues';
+  }
+
+  function addTestResult(container, badge, badgeClass, title, detailHtml, explanation) {
+    const existing = container.querySelector('.loading');
+    if (existing) existing.remove();
+    const empty = container.querySelector('.results-empty');
+    if (empty) empty.remove();
+
+    const div = document.createElement('div');
+    div.className = 'test-result';
+    div.innerHTML = `
+      <div class="tr-header">
+        <span class="tr-badge ${badgeClass}">${badge}</span>
+        <span class="tr-title">${title}</span>
+      </div>
+      <div class="tr-detail">${detailHtml}</div>
+      <div class="tr-explain">${explanation}</div>
+    `;
+    container.appendChild(div);
+  }
+
+  async function testBasicGet(url, container) {
+    try {
+      const res = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'omit' });
+      const acao = res.headers.get('Access-Control-Allow-Origin');
+
+      const detail = `<span class="label">Status:</span> <span class="val">${res.status} ${res.statusText}</span>\n` +
+        `<span class="label">Access-Control-Allow-Origin:</span> <span class="${acao ? 'val-warn' : 'val-good'}">${acao || '(not set)'}</span>`;
+
+      if (acao === '*') {
+        addTestResult(container, 'WARNING', 'badge-warn', 'Wildcard Origin (*) — any site can read responses',
+          detail,
+          `<strong>What this means:</strong> The server allows ANY website to read its responses. If this bucket has private data, any attacker can read it. If it only has public images/fonts, this is normal and safe.`);
+        scanResults.push({ test: 'basic', severity: 'warn', acao });
+      } else if (acao === window.location.origin) {
+        addTestResult(container, 'CRITICAL', 'badge-vuln', 'Origin Reflected — server mirrors our origin!',
+          detail,
+          `<strong>What this means:</strong> The server sent back YOUR domain as the allowed origin. This means it probably reflects ANY origin — test with credentials next. If credentials are also allowed, this is a critical vulnerability.`);
+        scanResults.push({ test: 'basic', severity: 'critical', acao });
+      } else if (acao) {
+        addTestResult(container, 'INFO', 'badge-info', `Specific origin allowed: ${acao}`,
+          detail,
+          `<strong>What this means:</strong> The server only allows a specific domain. This is generally safe, but check if the validation can be bypassed (e.g., evil-${acao.replace('https://', '')}).`);
+        scanResults.push({ test: 'basic', severity: 'info', acao });
+      } else {
+        addTestResult(container, 'SAFE', 'badge-safe', 'No CORS headers — cross-origin access blocked',
+          detail,
+          `<strong>What this means:</strong> The server doesn't send CORS headers, so browsers block cross-origin JavaScript from reading responses. This is the most secure configuration.`);
+        scanResults.push({ test: 'basic', severity: 'safe', acao: null });
+      }
+    } catch (err) {
+      addTestResult(container, 'BLOCKED', 'badge-safe', 'Request blocked by CORS',
+        `<span class="label">Error:</span> <span class="val">${err.message}</span>`,
+        `<strong>What this means:</strong> The browser completely blocked the request. No CORS headers were found. This target is not vulnerable to CORS attacks from this origin.`);
+      scanResults.push({ test: 'basic', severity: 'safe', error: true });
+    }
+  }
+
+  async function testOriginReflection(url, container) {
+    // We can't fake the Origin header from a browser, but we can check
+    // if what came back matches our origin
+    try {
+      const res = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'omit' });
+      const acao = res.headers.get('Access-Control-Allow-Origin');
+
+      if (acao === window.location.origin) {
+        addTestResult(container, 'CRITICAL', 'badge-vuln', 'Origin reflection confirmed',
+          `<span class="label">Sent Origin:</span> <span class="val">${window.location.origin}</span>\n` +
+          `<span class="label">Got back:</span> <span class="val-bad">${acao}</span>\n\n` +
+          `<span class="val-bad">⚠ The server reflected our exact origin back!</span>`,
+          `<strong>Bug bounty tip:</strong> To confirm full reflection, also test with curl:\n` +
+          `<code>curl -H "Origin: https://evil.com" -I ${url}</code>\n` +
+          `If it returns <code>Access-Control-Allow-Origin: https://evil.com</code>, it reflects any origin.`);
+        scanResults.push({ test: 'reflect', severity: 'critical' });
+      } else if (acao === '*') {
+        // Already covered in basic test
+        scanResults.push({ test: 'reflect', severity: 'warn' });
+      } else {
+        addTestResult(container, 'SAFE', 'badge-safe', 'Origin not reflected',
+          `<span class="label">Sent Origin:</span> <span class="val">${window.location.origin}</span>\n` +
+          `<span class="label">Got back:</span> <span class="val-good">${acao || '(none)'}</span>`,
+          `<strong>What this means:</strong> The server does not blindly reflect back whatever origin is sent. It either has a strict allowlist or doesn't set CORS headers at all.`);
+        scanResults.push({ test: 'reflect', severity: 'safe' });
+      }
+    } catch (err) {
+      scanResults.push({ test: 'reflect', severity: 'safe', error: true });
+    }
+  }
+
+  async function testCredentials(url, container) {
+    try {
+      const res = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'include' });
+      const acao = res.headers.get('Access-Control-Allow-Origin');
+      const acac = res.headers.get('Access-Control-Allow-Credentials');
+
+      const detail = `<span class="label">Access-Control-Allow-Origin:</span> <span class="${acao === window.location.origin ? 'val-bad' : 'val'}">${acao || '(not set)'}</span>\n` +
+        `<span class="label">Access-Control-Allow-Credentials:</span> <span class="${acac === 'true' ? 'val-bad' : 'val-good'}">${acac || 'false'}</span>`;
+
+      if (acao && acao !== '*' && acac === 'true') {
+        addTestResult(container, 'CRITICAL', 'badge-vuln', 'Credentials allowed with reflected/specific origin!',
+          detail,
+          `<strong>🐛 This is the most dangerous CORS misconfiguration!</strong>\n\n` +
+          `The server allows cross-origin requests WITH cookies/auth tokens. An attacker can:\n` +
+          `1. Host a malicious page\n` +
+          `2. Victim visits it while logged into the target\n` +
+          `3. JavaScript silently fetches private data using victim's session\n` +
+          `4. Data is sent to attacker's server\n\n` +
+          `<strong>Report this!</strong> Include a PoC showing data exfiltration.`);
+        scanResults.push({ test: 'creds', severity: 'critical' });
+      } else if (acac === 'true' && acao === '*') {
+        addTestResult(container, 'INFO', 'badge-info', 'Credentials + wildcard (browser blocks this)',
+          detail,
+          `<strong>What this means:</strong> The server says "allow credentials" but also uses wildcard origin. Browsers actually BLOCK this combination — it's invalid per the spec. Not exploitable unless the server also reflects origins.`);
+        scanResults.push({ test: 'creds', severity: 'info' });
+      } else {
+        addTestResult(container, 'SAFE', 'badge-safe', 'Credentials not allowed cross-origin',
+          detail,
+          `<strong>What this means:</strong> The server does not allow cookies or auth tokens to be sent in cross-origin requests. Even if an attacker can read responses, they can't steal authenticated/private data.`);
+        scanResults.push({ test: 'creds', severity: 'safe' });
+      }
+    } catch (err) {
+      addTestResult(container, 'SAFE', 'badge-safe', 'Credential request blocked',
+        `<span class="label">Error:</span> <span class="val">${err.message}</span>`,
+        `<strong>What this means:</strong> The browser blocked the credentialed request. The target is not vulnerable to credential-based CORS attacks from this origin.`);
+      scanResults.push({ test: 'creds', severity: 'safe', error: true });
+    }
+  }
+
+  async function testDataAccess(url, container) {
+    try {
+      const res = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'omit' });
+      const text = await res.text();
+
+      if (text && text.length > 0) {
+        const preview = text.substring(0, 200) + (text.length > 200 ? '...' : '');
+        addTestResult(container, 'READABLE', 'badge-warn', `Response body readable — ${text.length} characters`,
+          `<span class="label">Data preview:</span>\n<span class="val-bad">${preview.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`,
+          `<strong>What this means:</strong> JavaScript on this page was able to read the full response body from the target. If this contains private data (user info, API keys, internal docs), that data is exposed to any website the server allows via CORS.`);
+        scanResults.push({ test: 'data', severity: 'warn', length: text.length });
+      }
+    } catch (err) {
+      addTestResult(container, 'SAFE', 'badge-safe', 'Cannot read response body',
+        `<span class="label">Error:</span> <span class="val">${err.message}</span>`,
+        `<strong>What this means:</strong> JavaScript cannot read the response content. Data is protected.`);
+      scanResults.push({ test: 'data', severity: 'safe' });
+    }
+  }
+
+  async function testWriteAccess(url, container) {
+    // We test with a PUT to a test path, not the actual file
+    const testUrl = url.replace(/\/[^/]*$/, '/cors-write-test-' + Date.now() + '.txt');
+    try {
+      const res = await fetch(testUrl, {
+        method: 'PUT',
+        mode: 'cors',
+        credentials: 'omit',
+        body: 'CORS write test from ' + window.location.origin,
+        headers: { 'Content-Type': 'text/plain' }
+      });
+
+      addTestResult(container, 'CRITICAL', 'badge-vuln', `PUT request accepted — status ${res.status}`,
+        `<span class="label">Method:</span> <span class="val">PUT</span>\n` +
+        `<span class="label">Target:</span> <span class="val">${testUrl}</span>\n` +
+        `<span class="label">Status:</span> <span class="val-bad">${res.status} ${res.statusText}</span>`,
+        `<strong>🐛 The server accepted a PUT request from a cross-origin page!</strong>\n` +
+        `This means any website can upload/overwrite files in this bucket. An attacker could:\n` +
+        `- Upload malicious JavaScript files\n` +
+        `- Overwrite existing files (defacement)\n` +
+        `- Store phishing pages in the bucket\n\n` +
+        `<strong>Note:</strong> A 403 means CORS allowed it but auth blocked it. Check if public write is enabled.`);
+      scanResults.push({ test: 'write', severity: 'critical', status: res.status });
+    } catch (err) {
+      addTestResult(container, 'SAFE', 'badge-safe', 'PUT request blocked by CORS',
+        `<span class="label">Error:</span> <span class="val">${err.message}</span>`,
+        `<strong>What this means:</strong> The browser blocked the cross-origin PUT request. Files cannot be uploaded from external websites.`);
+      scanResults.push({ test: 'write', severity: 'safe' });
+    }
+  }
+
+  async function testDeleteAccess(url, container) {
+    const testUrl = url.replace(/\/[^/]*$/, '/cors-delete-test-nonexistent.txt');
+    try {
+      const res = await fetch(testUrl, {
+        method: 'DELETE',
+        mode: 'cors',
+        credentials: 'omit'
+      });
+
+      addTestResult(container, 'CRITICAL', 'badge-vuln', `DELETE request accepted — status ${res.status}`,
+        `<span class="label">Method:</span> <span class="val">DELETE</span>\n` +
+        `<span class="label">Target:</span> <span class="val">${testUrl}</span>\n` +
+        `<span class="label">Status:</span> <span class="val-bad">${res.status} ${res.statusText}</span>`,
+        `<strong>🐛 The server accepted a DELETE request from a cross-origin page!</strong>\n` +
+        `This means any website could potentially delete files from this bucket.\n\n` +
+        `<strong>Note:</strong> A 403/404 may mean CORS allowed it but auth/file-not-found stopped it. Check carefully.`);
+      scanResults.push({ test: 'delete', severity: 'critical', status: res.status });
+    } catch (err) {
+      addTestResult(container, 'SAFE', 'badge-safe', 'DELETE request blocked by CORS',
+        `<span class="label">Error:</span> <span class="val">${err.message}</span>`,
+        `<strong>What this means:</strong> The browser blocked the cross-origin DELETE request. Files cannot be deleted from external websites.`);
+      scanResults.push({ test: 'delete', severity: 'safe' });
+    }
+  }
+
+  function showOverallSeverity(container) {
+    const hasCritical = scanResults.some(r => r.severity === 'critical');
+    const hasWarn = scanResults.some(r => r.severity === 'warn');
+
+    let banner;
+    if (hasCritical) {
+      banner = document.createElement('div');
+      banner.className = 'severity-banner sev-critical';
+      banner.innerHTML = `
+        <span class="sb-icon">🚨</span>
+        <div class="sb-content">
+          <h4>CRITICAL — Exploitable CORS Misconfiguration Found</h4>
+          <p>This target has a dangerous CORS configuration that could allow data theft or unauthorized access. 
+          This is reportable for bug bounty. Create a Proof of Concept that demonstrates the impact — 
+          show what data can be stolen or what actions can be performed.</p>
+        </div>`;
+    } else if (hasWarn) {
+      banner = document.createElement('div');
+      banner.className = 'severity-banner sev-medium';
+      banner.innerHTML = `
+        <span class="sb-icon">⚠️</span>
+        <div class="sb-content">
+          <h4>MEDIUM — Overly Permissive CORS</h4>
+          <p>The CORS config is more open than necessary. Whether this is reportable depends on what data is exposed. 
+          If only public assets are served, this is acceptable. If private data is accessible, it's worth reporting.</p>
+        </div>`;
+    } else {
+      banner = document.createElement('div');
+      banner.className = 'severity-banner sev-safe';
+      banner.innerHTML = `
+        <span class="sb-icon">✅</span>
+        <div class="sb-content">
+          <h4>SAFE — No CORS Issues Found</h4>
+          <p>The target appears to have a properly configured CORS policy from this origin. 
+          Consider testing with curl to check if the server reflects arbitrary origins, 
+          as browser-based testing is limited to your current origin.</p>
+        </div>`;
+    }
+
+    container.appendChild(banner);
+
+    // Add copy report button
+    const reportBtn = document.createElement('button');
+    reportBtn.className = 'report-btn';
+    reportBtn.textContent = '📋 Copy Bug Report Template';
+    reportBtn.onclick = () => copyReport();
+    container.appendChild(reportBtn);
+  }
+
+  function copyReport() {
+    const url = document.getElementById('targetUrl').value;
+    const origin = window.location.origin;
+    const hasCritical = scanResults.some(r => r.severity === 'critical');
+
+    let report = `## CORS Misconfiguration Report\n\n`;
+    report += `**Target:** ${url}\n`;
+    report += `**Testing Origin:** ${origin}\n`;
+    report += `**Date:** ${new Date().toISOString()}\n\n`;
+    report += `### Findings\n\n`;
+
+    scanResults.forEach(r => {
+      report += `- **${r.test}**: ${r.severity.toUpperCase()}`;
+      if (r.acao) report += ` (ACAO: ${r.acao})`;
+      if (r.status) report += ` (HTTP ${r.status})`;
+      report += `\n`;
+    });
+
+    report += `\n### Steps to Reproduce\n\n`;
+    report += `1. Host a page on any domain with this JavaScript:\n`;
+    report += `\`\`\`javascript\nfetch("${url}", {\n  credentials: "include"\n}).then(r => r.text()).then(data => {\n  // Attacker can read: data\n  console.log(data);\n});\n\`\`\`\n`;
+    report += `2. Visit the page while authenticated to the target\n`;
+    report += `3. Observe that the response data is readable\n\n`;
+    report += `### Impact\n\n`;
+    report += hasCritical
+      ? `An attacker can steal sensitive data from authenticated users by hosting a malicious page that makes cross-origin requests to the vulnerable endpoint.\n`
+      : `The CORS policy is more permissive than necessary, which could expose data if combined with other vulnerabilities.\n`;
+
+    navigator.clipboard.writeText(report).then(() => {
+      alert('Bug report template copied to clipboard!');
+    }).catch(() => {
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = report;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      alert('Bug report template copied to clipboard!');
+    });
+  }
+</script>
+
+</body>
+</html>
